@@ -6,6 +6,14 @@ import toast from "react-hot-toast";
 import { Tipo, Pokemon } from "@/app/api/pokemon.interface";
 import EditTipoModal from "@/app/components/EditTipoModal";
 
+interface ApiError {
+  response?: {
+    data?: {
+      message?: string;
+    };
+  };
+}
+
 const Edit = () => {
   const { id } = useParams();
   const router = useRouter();
@@ -50,6 +58,22 @@ const Edit = () => {
       return;
     }
 
+    if (nuevaImagen) {
+      const validImageTypes = [
+        "image/jpeg",
+        "image/png",
+        "image/gif",
+        "image/webp",
+      ];
+      if (!validImageTypes.includes(nuevaImagen.type)) {
+        toast.error(
+          "Solo se admiten archivos de imagen (JPEG, PNG, GIF, WEBP)"
+        );
+        setIsSubmitting(false);
+        return;
+      }
+    }
+
     const formData = new FormData();
     formData.append("nombre", nombre);
     if (nuevaImagen) formData.append("imagen", nuevaImagen);
@@ -63,7 +87,16 @@ const Edit = () => {
       setIsModalOpen(true);
     } catch (error) {
       console.error("Error:", error);
-      toast.error("Error al actualizar Pokémon");
+      if (isApiError(error)) {
+        const apiError = error as ApiError;
+        if (apiError.response?.data?.message) {
+          toast.error(apiError.response.data.message);
+        } else {
+          toast.error("Error al actualizar Pokémon");
+        }
+      } else {
+        toast.error("Error al actualizar Pokémon");
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -148,5 +181,21 @@ const Edit = () => {
     </>
   );
 };
+
+// Tipo de guardado para verificar si el error es de tipo ApiError
+function isApiError(error: unknown): error is ApiError {
+  if (typeof error !== "object" || error === null) {
+    return false;
+  }
+
+  const apiError = error as ApiError;
+  return (
+    "response" in apiError &&
+    apiError.response !== undefined &&
+    apiError.response !== null &&
+    "data" in apiError.response &&
+    apiError.response.data !== undefined
+  );
+}
 
 export default Edit;
