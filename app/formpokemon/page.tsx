@@ -15,10 +15,10 @@ interface ApiError {
   response?: {
     data?: {
       message?: string;
+      code?: string;
     };
   };
 }
-
 
 const AddPokemonForm = () => {
   const [nombre, setNombre] = useState('');
@@ -45,74 +45,72 @@ const AddPokemonForm = () => {
     fetchTipos();
   }, []);
 
+  function isApiError(error: unknown): error is ApiError {
+    if (typeof error !== 'object' || error === null) {
+      return false;
+    }
+
+    const apiError = error as ApiError;
+    return (
+      'response' in apiError &&
+      apiError.response !== undefined &&
+      apiError.response !== null &&
+      'data' in apiError.response &&
+      apiError.response.data !== undefined
+    );
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  if (!nombre) {
-    toast.error('El nombre es requerido');
-    return;
-  }
-  if (!imagen) {
-    toast.error('La imagen es requerida');
-    return;
-  }
-
-  if (imagen) {
-    const validImageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-    if (!validImageTypes.includes(imagen.type)) {
-      toast.error('Solo se admiten archivos de imagen (JPEG, PNG, GIF, WEBP)');
+    if (!nombre) {
+      toast.error('El nombre es requerido');
       return;
     }
-  }
+    if (!imagen) {
+      toast.error('La imagen es requerida');
+      return;
+    }
 
-  const formData = new FormData();
-  formData.append('nombre', nombre);
-  if (imagen) formData.append('imagen', imagen);
+    if (imagen) {
+      const validImageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+      if (!validImageTypes.includes(imagen.type)) {
+        toast.error('Solo se admiten archivos de imagen (JPEG, PNG, GIF, WEBP)');
+        return;
+      }
+    }
 
-  try {
-    const response = await pokeApi.post('/pokemon', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    });
+    const formData = new FormData();
+    formData.append('nombre', nombre);
+    if (imagen) formData.append('imagen', imagen);
 
-    toast.success('Pokémon creado exitosamente!');
-    setCreatedPokemonId(response.data.id);
-    setIsModalOpen(true);
+    try {
+      const response = await pokeApi.post('/pokemon', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
 
-    setNombre('');
-    setImagen(null);
-  } catch (error) {
-    console.error("Error:", error);
-    if (isApiError(error)) {
-      const apiError = error as ApiError;
-      if (apiError.response?.data?.message) {
-        toast.error(apiError.response.data.message);
+      toast.success('Pokémon creado exitosamente!');
+      setCreatedPokemonId(response.data.id);
+      setIsModalOpen(true);
+
+      setNombre('');
+      setImagen(null);
+    } catch (error) {
+      console.error("Error:", error);
+      if (isApiError(error)) {
+        const apiError = error as ApiError;
+        if (apiError.response?.data?.message) {
+          toast.error(apiError.response.data.message);
+        } else if (apiError.response?.data?.code === 'ER_DUP_ENTRY') {
+          toast.error('El Pokémon ya existe en la base de datos');
+        } else {
+          toast.error('Error al crear Pokémon');
+        }
       } else {
         toast.error('Error al crear Pokémon');
       }
-    } else {
-      toast.error('Error al crear Pokémon');
     }
-  }
-};
-
-// Tipo de guardado para verificar si el error es de tipo ApiError
-function isApiError(error: unknown): error is ApiError {
-  if (typeof error !== 'object' || error === null) {
-    return false;
-  }
-
-  const apiError = error as ApiError;
-  return (
-    'response' in apiError &&
-    apiError.response !== undefined &&
-    apiError.response !== null &&
-    'data' in apiError.response &&
-    apiError.response.data !== undefined
-  );
-}
-
-
-
+  };
 
   const handleTipoAdded = () => {
     setCreatedPokemonId(null);
